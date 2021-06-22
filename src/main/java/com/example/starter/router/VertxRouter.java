@@ -26,12 +26,14 @@ public class VertxRouter {
     this.router.get("/periodicTable/:elementId")
       //.handler(new AppValidationHandler(app))
       .handler(new ElementHandler(app));
-    this.router.post("/")
+    this.router.post("/periodicTable/insert/fromFile/")
+      .handler(new PopulateDBHandler(app));
+    this.router.post("/periodicTable/insert/")
       //.handler(new AppValidationHandler(app))
       .handler(new AddElementHandler(app));
-    this.router.post("/:elementId/:newValue")
+    this.router.post("/periodicTable/update/:elementId/:newValue")
       .handler(new UpdateElementHandler(app));
-    this.router.post("/:elementId")
+    this.router.post("/periodicTable/delete/:elementId")
       .handler(new DeleteElementHandler(app));
   }
 

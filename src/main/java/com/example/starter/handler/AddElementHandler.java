@@ -18,7 +18,8 @@ public class AddElementHandler implements Handler<RoutingContext>{
 
     JsonObject newElement = event.getBodyAsJson();
 
-    app.insert(newElement).subscribe(__ -> event.response().setStatusCode(200).end());
+    app.insert(newElement)
+      .subscribe(() -> event.response().send("Element added"));
 
     /*app.insert(newElement)
       .subscribe(id -> {

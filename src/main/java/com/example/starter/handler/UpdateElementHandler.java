@@ -15,7 +15,8 @@ public class UpdateElementHandler implements Handler<RoutingContext> {
 
   @Override
   public void handle(RoutingContext event) {
-    app.update(new Queries().getModifyQuery(), event.get("elementId"), event.get("newValue")).subscribe();
+    app.update(new Queries().getModifyQuery(), event.pathParam("elementId"), event.pathParam("newValue"))
+      .subscribe(r -> event.response().send("Element updated"));
   }
 
 }

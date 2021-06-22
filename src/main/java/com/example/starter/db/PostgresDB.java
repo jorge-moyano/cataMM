@@ -1,8 +1,5 @@
 package com.example.starter.db;
 
-import java.sql.*;
-import java.util.ArrayList;
-
 
 import io.reactivex.Completable;
 import io.reactivex.Flowable;
@@ -10,7 +7,6 @@ import io.reactivex.Single;
 import io.vertx.core.json.JsonObject;
 import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.reactivex.core.Vertx;
-import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.pgclient.PgPool;
 import io.vertx.reactivex.sqlclient.Row;
 import io.vertx.reactivex.sqlclient.RowSet;
@@ -52,33 +48,29 @@ public class PostgresDB {
     return pool;
   }
 
-
-  /**
-   * Connect to the PostgreSQL database
-   *
-   * @return a Connection object
-   */
-
-  /*public Connection connect() {
-    Connection conn = null;
-    try {
-      conn = DriverManager.getConnection(url, user, password);
-      System.out.println("Connected to the PostgreSQL server successfully.");
-    } catch (SQLException e) {
-      System.out.println(e.getMessage());
-    }
-    return conn;
-  }*/
-
-  public void populateDB(JsonObject jsonObject) {
-
-    jsonObject.getJsonArray("elements")
-      .stream().forEach(item -> insertFile((JsonObject) item));
-
-
+  public Single<RowSet<Row>> delete(String query, String id) {
+    return client
+      .preparedQuery(query)
+      .rxExecute(Tuple.of(id))
+      .doOnError(result -> System.out.println("Error deleting rows from the table"))
+      .filter(r -> r.rowCount() != 0)
+      .switchIfEmpty(Single.error(new Exception("Element not found")))
+      .doOnSuccess(result -> System.out.println("Element deleted from the table"));
   }
 
-  private Object insertFile(JsonObject item) {
+  public Flowable<JsonObject> find(String query, String id){
+    return client
+      .preparedQuery(query)
+      .rxExecute(Tuple.of(id))
+      .doOnError(result -> System.out.println("Error while searching for the element"))
+      .filter(r -> r.rowCount() != 0)
+      .switchIfEmpty(Single.error(new Exception("No matches were found")))
+      .doOnSuccess(result -> System.out.println("Element found in the table, retrieved "+result.size()+" rows"))
+      .flattenAsFlowable(r -> r)
+      .map(Row::toJson);
+  }
+
+  /*private Completable insertFile(JsonObject item) {
     ArrayList list = new ArrayList();
     list.add(item.getString("name"));
     list.add(item.getString("category"));
@@ -94,51 +86,31 @@ public class PostgresDB {
       .doOnSuccess(result -> System.out.println("Tuple added to de table"))
       .doOnError(result -> System.out.println("Error adding tuple to table"))
       .ignoreElement();
-  }
+  }*/
 
-  public Single<RowSet<Row>>  insert(JsonObject json){
+  public Completable insert(JsonObject json){
 
     Queries query = new Queries();
     return client
       .preparedQuery(query.getInsertQuery())
       .rxExecute(Tuple.of(json.getString("name"), json.getString("category"), json.getInteger("number"), json.getInteger("period"), json.getString("summary"), json.getString("symbol")))
       .doOnSuccess(result -> System.out.println("Tuple inserted to the table"))
-      .doOnError(result -> System.out.println("Error inserted tuple to the table"));
-
-  }
-
-  public Flowable<JsonObject> find(String query, String id){
-    return client
-      .preparedQuery(query)
-      .rxExecute(Tuple.of(id))
-      .doOnError(result -> System.out.println("Error while searching for the element"))
-      .filter(r -> r.rowCount() != 0)
-      .switchIfEmpty(Single.error(new Exception("No matches were found")))
-      .doOnSuccess(result -> System.out.println("Element found in the table, retrieved "+result.size()+" rows"))
-      .flattenAsFlowable(r -> r)
-      .map(Row::toJson);
-  }
-
-    public Completable delete(String query, String id) {
-    return client
-      .preparedQuery(query)
-      .rxExecute(Tuple.of(id))
-      .doOnError(result -> System.out.println("Error deleting rows from the table"))
-      .filter(r -> r.rowCount() != 0)
-      .switchIfEmpty(Single.error(new Exception("Element not found")))
-      .doOnSuccess(result -> System.out.println("Element deleted from the table"))
+      .doOnError(result -> System.out.println("Error inserted tuple to the table"))
       .ignoreElement();
   }
 
-  public Completable update(String query, String id, String value) {
+  public void populateDB(JsonObject jsonObject) {
+
+    jsonObject.getJsonArray("elements")
+      .stream().forEach(item -> insert((JsonObject) item).subscribe());
+  }
+
+  public Single<RowSet<Row>> update(String query, String id, String value) {
     return client
       .preparedQuery(query)
       .rxExecute(Tuple.of(value, id))
-      .doOnError(error -> System.out.println("Error updating promotion"))
-      .filter(r -> r.rowCount() != 0)
-      .switchIfEmpty(Single.error(new Exception("No matches were found")))
-      .doOnSuccess(result -> System.out.println("Element updated"))
-      .ignoreElement();
+      .doOnError(error -> System.out.println("Error updating element"))
+      .doOnSuccess(result -> System.out.println("Element updated"));
   }
 
   /**
