@@ -14,6 +14,6 @@ public class AppValidationHandler implements Handler<RoutingContext>{
 
   @Override
   public void handle(RoutingContext event) {
-
+    event.next();
   }
 }

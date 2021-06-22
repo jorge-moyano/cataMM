@@ -10,5 +10,6 @@ public class Main {
 
     vertx.rxDeployVerticle(vert)
       .subscribe(id -> System.out.println("Verticle "+ id + " deployed"));
+
   }
 }

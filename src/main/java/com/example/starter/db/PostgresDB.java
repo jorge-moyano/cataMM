@@ -1,14 +1,11 @@
 package com.example.starter.db;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.sql.*;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
 import io.reactivex.Single;
 import io.vertx.core.json.JsonObject;
 import io.vertx.pgclient.PgConnectOptions;
@@ -20,17 +17,13 @@ import io.vertx.reactivex.sqlclient.RowSet;
 import io.vertx.reactivex.sqlclient.SqlClient;
 import io.vertx.reactivex.sqlclient.Tuple;
 import io.vertx.sqlclient.PoolOptions;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 public class PostgresDB {
 
 
-  private final String url = "jdbc:postgresql://localhost/postgres";
+  private final String url = "jdbc:postgresql://localhost:5432/postgres";
   private final String user = "catamm";
   private final String password = "password";
-  private final String insertQuery = "INSERT INTO periodicTable (id, category, numbr, perd, summary, symbol) VALUES ($1, $2, $3, $4, $5, $6)";
-
   private final SqlClient client;
 
   public PostgresDB() {
@@ -66,7 +59,7 @@ public class PostgresDB {
    * @return a Connection object
    */
 
-  public Connection connect() {
+  /*public Connection connect() {
     Connection conn = null;
     try {
       conn = DriverManager.getConnection(url, user, password);
@@ -75,7 +68,7 @@ public class PostgresDB {
       System.out.println(e.getMessage());
     }
     return conn;
-  }
+  }*/
 
   public void populateDB(JsonObject jsonObject) {
 
@@ -93,69 +86,83 @@ public class PostgresDB {
     list.add(item.getInteger("period"));
     list.add(item.getString("summary"));
     list.add(item.getString("symbol"));
+    Queries query = new Queries();
 
     return client
-      .preparedQuery(insertQuery)
+      .preparedQuery(query.getInsertQuery())
       .rxExecute(Tuple.from(list))
-      .doOnSuccess(r -> System.out.println("Tuple added to de table"))
-      .doOnError(r -> System.out.println("Error adding tuple to table"))
+      .doOnSuccess(result -> System.out.println("Tuple added to de table"))
+      .doOnError(result -> System.out.println("Error adding tuple to table"))
       .ignoreElement();
   }
 
-  public Single<RowSet<Row>> insert(JsonObject json){
-    String id, category, summary, symbol, query;
-    Long number, period;
-    int numbr, perd;
+  public Single<RowSet<Row>>  insert(JsonObject json){
 
-    id = json.getString("name");
-
-    category = json.getString("category");
-
-    number = json.getLong("number");
-    numbr = number.intValue();
-
-    period = json.getLong("period");
-    perd = period.intValue();
-
-    summary = json.getString("summary");
-
-    symbol = json.getString("symbol");
+    Queries query = new Queries();
     return client
-      .preparedQuery(insertQuery)
-      .rxExecute(Tuple.of(id, category, numbr, perd, summary, symbol))
-      .doOnSuccess(r -> System.out.println("Tuple added to de table"))
-      .doOnError(r -> System.out.println("Error adding tuple to table"));
+      .preparedQuery(query.getInsertQuery())
+      .rxExecute(Tuple.of(json.getString("name"), json.getString("category"), json.getInteger("number"), json.getInteger("period"), json.getString("summary"), json.getString("symbol")))
+      .doOnSuccess(result -> System.out.println("Tuple inserted to the table"))
+      .doOnError(result -> System.out.println("Error inserted tuple to the table"));
 
   }
 
-  /*public Maybe<JsonObject> find(JsonObject json){
-    return client.rxFindOne("cars", json, new JsonObject());
+  public Flowable<JsonObject> find(String query, String id){
+    return client
+      .preparedQuery(query)
+      .rxExecute(Tuple.of(id))
+      .doOnError(result -> System.out.println("Error while searching for the element"))
+      .filter(r -> r.rowCount() != 0)
+      .switchIfEmpty(Single.error(new Exception("No matches were found")))
+      .doOnSuccess(result -> System.out.println("Element found in the table, retrieved "+result.size()+" rows"))
+      .flattenAsFlowable(r -> r)
+      .map(Row::toJson);
   }
 
-  public Maybe remove(JsonObject json){
-    return client.rxRemoveDocument("cars", json);
+    public Completable delete(String query, String id) {
+    return client
+      .preparedQuery(query)
+      .rxExecute(Tuple.of(id))
+      .doOnError(result -> System.out.println("Error deleting rows from the table"))
+      .filter(r -> r.rowCount() != 0)
+      .switchIfEmpty(Single.error(new Exception("Element not found")))
+      .doOnSuccess(result -> System.out.println("Element deleted from the table"))
+      .ignoreElement();
   }
 
-  public Maybe<JsonObject> modify(JsonObject original, JsonObject actual){
-    return client.rxFindOneAndReplace("cars", original, actual);
-  }*/
+  public Completable update(String query, String id, String value) {
+    return client
+      .preparedQuery(query)
+      .rxExecute(Tuple.of(value, id))
+      .doOnError(error -> System.out.println("Error updating promotion"))
+      .filter(r -> r.rowCount() != 0)
+      .switchIfEmpty(Single.error(new Exception("No matches were found")))
+      .doOnSuccess(result -> System.out.println("Element updated"))
+      .ignoreElement();
+  }
 
   /**
    * @param args the command line arguments
    */
-  public static void main(String[] args) {
-
-
-    Vertx vertx = Vertx.vertx();
-    PostgresDB app = new PostgresDB();
-    vertx.fileSystem().rxReadFile("/Users/jorge.moyanomasmovil.com/Documents/projects/cataMM/starter/src/main/java/com/example/starter/db/elements.json")
-      .map(Buffer::toJsonObject)
-      .subscribe(app::populateDB);
-
-
-
-    //app.connect();
-
-    //app.populateDB(jsonObject);
-  }
+//  public static void main(String[] args) {
+//
+//    Vertx vertx = Vertx.vertx();
+//    PostgresDB app = new PostgresDB();
+//    vertx.fileSystem().rxReadFile("/Users/jorge.moyanomasmovil.com/Documents/projects/cataMM//src/main/java/com/example/starter/db/elements.json")
+//      .map(Buffer::toJsonObject)
+//      .subscribe(app::populateDB);
+//    JsonObject jsonObject = new JsonObject();
+//    jsonObject.put("name", "Atium")
+//      .put("category", "noble metal")
+//      .put("number", 16)
+//      .put("period", 16)
+//      .put("summary", "Atium is a God Metal. An Allomancer burning atium is able to see into the future by a few seconds. Feruchemists can use atium to store youthfulness, and when used as a Hemalurgic spike, atium steals any property or power. The metal is a reflective, silvery color, so much so that beads of atium almost appear to be drops of liquid.")
+//      .put("symbol", "At");
+//    app.insert(jsonObject);
+//    Queries query = new Queries();
+//    //app.find(query.getGetQuery(), "Atium").subscribe();
+//    app.update(query.getModifyQuery(), "Atm", "Atium").subscribe();
+//    //app.delete(query.getDeleteQuery(), "Atium").subscribe();
+//
+//  }
 }

@@ -34,11 +34,13 @@ dependencies {
   implementation("io.vertx:vertx-pg-client")
   compileOnly("io.vertx:vertx-rx-java2:4.1.0")
   compileOnly("io.vertx:vertx-pg-client:4.1.0")
+  implementation("io.vertx:vertx-web")
   implementation(files("libs/postgresql-42.2.21.jar"))
   implementation(files("libs/json-20210307.jar"))
   implementation(files("libs/json-simple-1.1.1.jar"))
   testImplementation("io.vertx:vertx-junit5")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
+  compileOnly("io.netty:netty-resolver-dns-native-macos:4.1.59.Final:osx-x86_64")
 }
 
 java {
