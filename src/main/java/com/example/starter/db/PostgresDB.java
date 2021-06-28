@@ -1,6 +1,5 @@
 package com.example.starter.db;
 
-
 import io.reactivex.Completable;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
@@ -14,12 +13,9 @@ import io.vertx.reactivex.sqlclient.SqlClient;
 import io.vertx.reactivex.sqlclient.Tuple;
 import io.vertx.sqlclient.PoolOptions;
 
+
 public class PostgresDB {
 
-
-  private final String url = "jdbc:postgresql://localhost:5432/postgres";
-  private final String user = "catamm";
-  private final String password = "password";
   private final SqlClient client;
 
   public PostgresDB() {
@@ -35,37 +31,32 @@ public class PostgresDB {
       .setUser("catamm")
       .setPassword("password");
 
-    // Pool Options
     PoolOptions poolOptions = new PoolOptions().setMaxSize(5);
-
-    // Create the pool from the data object
     PgPool pool = PgPool.pool(Vertx.vertx(), connectOptions, poolOptions);
 
-    pool.getConnection(ar -> {
-      System.out.println("Postgres client connected");
-    });
+    pool.getConnection(ar -> System.out.println("Postgres client connected"));
 
     return pool;
   }
 
-  public Single<RowSet<Row>> delete(String query, String id) {
-    return client
-      .preparedQuery(query)
-      .rxExecute(Tuple.of(id))
+  public Completable delete(String query, String id) {
+
+    return exQuery(client, query, id)
       .doOnError(result -> System.out.println("Error deleting rows from the table"))
       .filter(r -> r.rowCount() != 0)
       .switchIfEmpty(Single.error(new Exception("Element not found")))
-      .doOnSuccess(result -> System.out.println("Element deleted from the table"));
+      .doOnSuccess(result -> System.out.println("Element deleted from the table"))
+      .ignoreElement();
+      //.doOnComplete(() -> System.out.println("ey"));
   }
 
   public Flowable<JsonObject> find(String query, String id){
-    return client
-      .preparedQuery(query)
-      .rxExecute(Tuple.of(id))
+
+    return exQuery(client, query, id)
       .doOnError(result -> System.out.println("Error while searching for the element"))
       .filter(r -> r.rowCount() != 0)
       .switchIfEmpty(Single.error(new Exception("No matches were found")))
-      .doOnSuccess(result -> System.out.println("Element found in the table, retrieved "+result.size()+" rows"))
+      .doOnSuccess((result -> System.out.println("Element found in the table, retrieved " + result.size() + " rows")))
       .flattenAsFlowable(r -> r)
       .map(Row::toJson);
   }
@@ -88,53 +79,57 @@ public class PostgresDB {
       .ignoreElement();
   }*/
 
-  public Completable insert(JsonObject json){
+  public Completable insert(String query, JsonObject json){
 
-    Queries query = new Queries();
-    return client
-      .preparedQuery(query.getInsertQuery())
-      .rxExecute(Tuple.of(json.getString("name"), json.getString("category"), json.getInteger("number"), json.getInteger("period"), json.getString("summary"), json.getString("symbol")))
+    return exQuery(client, query, json)
       .doOnSuccess(result -> System.out.println("Tuple inserted to the table"))
-      .doOnError(result -> System.out.println("Error inserted tuple to the table"))
+      .doOnError(result -> System.out.println("Error inserting tuple to the table"))
       .ignoreElement();
   }
+
+//  public Flowable<Object> populateDB(JsonObject jsonObject) {
+//
+//   return Single.just(jsonToList(jsonObject.getJsonArray("elements")))
+//     .flattenAsFlowable(r -> r)
+//     .map(element -> insert(element));
+//      //.stream().forEach(item -> insert((JsonObject) item).subscribe());
+//  }
 
   public void populateDB(JsonObject jsonObject) {
 
     jsonObject.getJsonArray("elements")
-      .stream().forEach(item -> insert((JsonObject) item).subscribe());
+      .stream().forEach(item -> insert(new Queries().getInsertQuery(),(JsonObject) item).subscribe());
   }
 
-  public Single<RowSet<Row>> update(String query, String id, String value) {
+  public Completable update(String query, String id, String value) {
+
+    return exQuery(client, query, id, value)
+      .doOnError(error -> System.out.println("Error updating element"))
+      .filter(r -> r.rowCount() != 0)
+      .switchIfEmpty(Single.error(new Exception("No matches were found")))
+      .doOnSuccess(result -> System.out.println("Element updated"))
+      .ignoreElement();
+  }
+
+  public Single<RowSet<Row>> exQuery(SqlClient client, String query, String id) {
+
     return client
       .preparedQuery(query)
-      .rxExecute(Tuple.of(value, id))
-      .doOnError(error -> System.out.println("Error updating element"))
-      .doOnSuccess(result -> System.out.println("Element updated"));
+      .rxExecute(Tuple.of(id));
   }
 
-  /**
-   * @param args the command line arguments
-   */
-//  public static void main(String[] args) {
-//
-//    Vertx vertx = Vertx.vertx();
-//    PostgresDB app = new PostgresDB();
-//    vertx.fileSystem().rxReadFile("/Users/jorge.moyanomasmovil.com/Documents/projects/cataMM//src/main/java/com/example/starter/db/elements.json")
-//      .map(Buffer::toJsonObject)
-//      .subscribe(app::populateDB);
-//    JsonObject jsonObject = new JsonObject();
-//    jsonObject.put("name", "Atium")
-//      .put("category", "noble metal")
-//      .put("number", 16)
-//      .put("period", 16)
-//      .put("summary", "Atium is a God Metal. An Allomancer burning atium is able to see into the future by a few seconds. Feruchemists can use atium to store youthfulness, and when used as a Hemalurgic spike, atium steals any property or power. The metal is a reflective, silvery color, so much so that beads of atium almost appear to be drops of liquid.")
-//      .put("symbol", "At");
-//    app.insert(jsonObject);
-//    Queries query = new Queries();
-//    //app.find(query.getGetQuery(), "Atium").subscribe();
-//    app.update(query.getModifyQuery(), "Atm", "Atium").subscribe();
-//    //app.delete(query.getDeleteQuery(), "Atium").subscribe();
-//
-//  }
+  public Single<RowSet<Row>> exQuery(SqlClient client, String query, String id, String value) {
+
+    return client
+      .preparedQuery(query)
+      .rxExecute(Tuple.of(value, id));
+  }
+
+  public Single<RowSet<Row>> exQuery(SqlClient client,String query, JsonObject json) {
+
+    return client
+      .preparedQuery(query)
+      .rxExecute(Tuple.of(json.getString("name"), json.getString("category"), json.getInteger("number"), json.getInteger("period"), json.getString("summary"), json.getString("symbol")));
+  }
+
 }

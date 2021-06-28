@@ -5,13 +5,13 @@ public class Queries {
   private String deleteQuery;
   private String getQuery;
   private String insertQuery;
-  private String modifyQuery;
+  private String updateQuery;
 
   public Queries() {
     deleteQuery = "DELETE FROM periodicTable WHERE id = ($1);";
     getQuery = "SELECT * FROM periodicTable WHERE id = ($1);";
     insertQuery = "INSERT INTO periodicTable (id, category, numbr, perd, summary, symbol) VALUES ($1, $2, $3, $4, $5, $6);";
-    modifyQuery = "UPDATE periodicTable SET symbol = ($1) WHERE id = ($2)";
+    updateQuery = "UPDATE periodicTable SET symbol = ($1) WHERE id = ($2)";
 
   }
 
@@ -27,8 +27,8 @@ public class Queries {
     this.insertQuery = insertQuery;
   }
 
-  public void setModifyQuery(String modifyQuery) {
-    this.modifyQuery = modifyQuery;
+  public void setUpdateQuery(String updateQuery) {
+    this.updateQuery = updateQuery;
   }
 
   public String getDeleteQuery() {
@@ -43,8 +43,8 @@ public class Queries {
     return insertQuery;
   }
 
-  public String getModifyQuery() {
-    return modifyQuery;
+  public String getUpdateQuery() {
+    return updateQuery;
   }
 
 }

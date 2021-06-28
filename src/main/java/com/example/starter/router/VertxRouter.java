@@ -24,12 +24,11 @@ public class VertxRouter {
 
   public void configureRouter(PostgresDB app){
     this.router.get("/periodicTable/:elementId")
-      //.handler(new AppValidationHandler(app))
-      .handler(new ElementHandler(app));
+      .handler(new GetElementHandler(app));
     this.router.post("/periodicTable/insert/fromFile/")
       .handler(new PopulateDBHandler(app));
     this.router.post("/periodicTable/insert/")
-      //.handler(new AppValidationHandler(app))
+      .handler(new AddValidationHandler())
       .handler(new AddElementHandler(app));
     this.router.post("/periodicTable/update/:elementId/:newValue")
       .handler(new UpdateElementHandler(app));
